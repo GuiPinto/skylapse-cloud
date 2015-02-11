@@ -1,0 +1,18 @@
+{
+  "name": "skycam-server",
+  "version": "0.0.1",
+  "description": "skycam-server",
+  "engines": {
+    "node": "0.10.x"
+  },
+  "main": "app.js",
+  "dependencies": {
+    "mongoose": "3.8.22",
+    "express": "4.10.8",
+    "express-enrouten": "1.2.0",
+    "nodemon": "1.2.1",
+    "multer": "0.1.7",
+    "async": "0.9.0"
+  },
+  "private": true
+}
