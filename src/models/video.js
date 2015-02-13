@@ -1,16 +1,17 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
-var SnippetModel;
-var SnippetSchema = new Schema({
+var VideoModel;
+var VideoSchema = new Schema({
 	uid: { type: String, required: true },
 	date: { type: String, required: true },
 	hour: { type: Number, required: true },
 	path: { type: String, required: true },
+	status: { type: String },
 	created: { type: Date, default: Date },
 	weather: {}
 });
 
-SnippetModel = mongoose.model('Snippet', SnippetSchema);
-module.exports.schema = SnippetSchema;
-module.exports.model = SnippetModel;
+VideoModel = mongoose.model('Video', VideoSchema);
+module.exports.schema = VideoSchema;
+module.exports.model = VideoModel;

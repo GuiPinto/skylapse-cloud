@@ -1,9 +1,9 @@
 var exec = require('child_process').exec,
 	fs = require('fs'),
 	async = require('async'),
-	Snippet = require('../models/snippet').model;
+	Video = require('../models/video').model;
 
-var videoQueue = async.queue(transcodeVideo, 1);
+var videoTranscodingQueue = async.queue(transcodeVideo, 1);
 
 
 module.exports.index = function(req, res) {
@@ -11,21 +11,6 @@ module.exports.index = function(req, res) {
 
 
 
-	var snippet = new Snippet({
-		uid: '00000000a5bf8fe5',
-		date: '2015-02-05',
-		hour: 22,
-		path: "workspace/00000000a5bf8fe5_2015-02-05_22.mp4"
-	});
-
-	snippet.save(function(err, snipp) {
-
-		return res.send({
-			err: err,
-			snipp:snipp
-		});
-//	return res.send("Hi There");
-	});
 
 }
 
@@ -39,7 +24,7 @@ module.exports.upload = function(req, res) {
 		return res.send({error: 'Malformed Request'});
 	}
 
-	// Remove our timeout
+	// Remove our request timeout
 	res.connection.setTimeout(0);
 
 	var date = req.body.date,
@@ -58,17 +43,37 @@ module.exports.upload = function(req, res) {
 	console.log("Skycloud Upload from UID:", uid);
 	console.log("videoData:", videoData);
 
-	videoQueue.push(videoData, function (transcodeResults) {
-	    // Returning from queue-processing
+	// Create our video object
+	var video = new Video({
+		uid: uid,
+		date: date,
+		hour: hour,
+		status: 'queue'
+	});
 
-	    deleteSourceVideo(transcodeResults.source);
+	// Save bideo obj to db
+	video.save(function(err, savedVideo) {
+		console.log('video.id => ', video.id);
 
-		return res.send({
-			videoData: videoData,
-			transcodeResults: transcodeResults
+		// Add Video Data to Video Processing Queue
+		videoTranscodingQueue.push(videoData, function (transcodeResults) {
+			// after transcoding..
+
+		    deleteSourceVideo(transcodeResults.source, function() {
+
+				return res.send({
+					videoData: videoData,
+					transcodeResults: transcodeResults,
+					savedVideo: savedVideo
+				});
+
+		    });
+
 		});
 
 	});
+
+
 
 }
 
@@ -82,6 +87,7 @@ function transcodeVideo(videoData, callback) {
 
 	/**** MP4 Transcoding ****/
     var ffmpegArgs = [
+    	'/opt/ffmpeg/bin/ffmpeg', //TODO: Make Configurable
     	'-y',
     	'-i "' + sourcePath + '"',
     	'-vcodec libx264',
@@ -89,7 +95,7 @@ function transcodeVideo(videoData, callback) {
     	'-an',
     	'"' + outputPathWithoutExt + '.mp4"'
     ];
-    var ffmpegExec = "/opt/ffmpeg/bin/ffmpeg " + ffmpegArgs.join(' ');
+    var ffmpegExec = ffmpegArgs.join(' ');
     console.log('> Executing FFmpeg Child Process:', ffmpegExec);
     var ffmpegChild = exec(ffmpegExec, function(err, stdout, stderr) {
     	if (err) throw err;
@@ -97,11 +103,12 @@ function transcodeVideo(videoData, callback) {
 
 		/**** OGG Transcoding ****/
 	   var ffmpeg2theoraArgs = [
+	   		'/usr/bin/ffmpeg2theora', // TODO: Make Configurable
 	   		'--noaudio',
 	   		'-o "' + outputPathWithoutExt + '.ogg"',
 	   		'"' + outputPathWithoutExt + '.mp4"'
 	    ];
-	    var ffmpeg2theoraExec = "/usr/bin/ffmpeg2theora " + ffmpeg2theoraArgs.join(' ');
+	    var ffmpeg2theoraExec = ffmpeg2theoraArgs.join(' ');
 	    console.log('> Executing FFmpeg2theora Child Process:', ffmpeg2theoraExec);
 	    var ffmpeg2theoraChild = exec(ffmpeg2theoraExec, function(err, stdout, stderr) {
 	    	if (err) throw err;
@@ -117,7 +124,7 @@ function transcodeVideo(videoData, callback) {
     });
 }
 
-function deleteSourceVideo(videoPath) {
+function deleteSourceVideo(videoPath, callback) {
 	console.log('> Deleting source video:', videoPath);
-	return fs.unlinkSync(videoPath);
+	return fs.unlink(videoPath, callback);
 }
