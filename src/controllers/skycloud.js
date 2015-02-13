@@ -53,11 +53,13 @@ module.exports.upload = function(req, res) {
 
 	// Save bideo obj to db
 	video.save(function(err, savedVideo) {
-		console.log('video.id => ', video.id);
 
-		// Add Video Data to Video Processing Queue
-		videoTranscodingQueue.push(videoData, function (transcodeResults) {
-			// after transcoding..
+		// Add Video to Processing Queue
+		videoTranscodingQueue.push(videoData, function (transcodeResults) { // after transcoding..
+
+			// Update video status in db
+			video.set('status', 'rendered');
+			video.save();
 
 		    deleteSourceVideo(transcodeResults.source, function() {
 
