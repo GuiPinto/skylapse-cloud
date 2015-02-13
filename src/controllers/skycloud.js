@@ -1,10 +1,17 @@
 var exec = require('child_process').exec,
 	fs = require('fs'),
 	async = require('async'),
+	aws = require('aws-sdk'),
 	Video = require('../models/video').model;
 
 var videoTranscodingQueue = async.queue(transcodeVideo, 1);
 
+// Config AWS
+aws.config.update({ 
+	accessKeyId: process.env.accessKeyId || '', 
+	secretAccessKey: process.env.secretAccessKey || ''
+});
+aws.config.update({region: 'us-east-1'});
 
 module.exports.index = function(req, res) {
 
@@ -129,4 +136,40 @@ function transcodeVideo(videoData, callback) {
 function deleteSourceVideo(videoPath, callback) {
 	console.log('> Deleting source video:', videoPath);
 	return fs.unlink(videoPath, callback);
+}
+
+function shipFileToS3(localPath, remotePath, callback) {
+	var fileName = path.basename(localPath);
+
+	var s3 = new AWS.S3();
+
+	if (fs.lstatSync(localPath).isFile()) {
+
+		fs.readFile(localPath, function (err, data) {
+			if (err) throw err;
+
+			var s3Bucket = "skylapse";
+			var s3Key = "boston2/" + fileName;
+
+			s3.putObject({
+				Bucket: s3Bucket,
+				Key: s3Key,
+				Body: data,
+				ACL:'public-read'
+			}, function(err, data) {
+				if (err) {
+					console.log(" > Error uploading data: ", err);
+				} else {
+					console.log(" > Successfully Uploaded to S3!");
+					console.log(" > s3Key => ", s3Key);
+				}
+				callback();
+			});
+
+		});
+
+	} else {
+		console.log(" > Failed. Is not file!");
+	}
+
 }
