@@ -62,12 +62,6 @@ module.exports.upload = function(req, res) {
 		// Step 2. Add Video to Processing Queue + Proccess Video
 	    function(video, cb) {
 
-	    	console.log('video => ', video);
-	    	console.log('typeof video => ', typeof video);
-
-	    	console.log('cb => ', cb);
-	    	console.log('typeof cb => ', typeof cb);
-
 			var videoQueueToken = {
 				date: date,
 				hour: hour,
@@ -81,11 +75,6 @@ module.exports.upload = function(req, res) {
 				video.set('status', 'rendered');
 				video.save();
 
-				console.log('cb => ', cb);
-				console.log('typeof cb => ', typeof cb);
-				console.log('transcodeResults.cbd => ', transcodeResults.cbd);
-				console.log('typeof transcodeResults.cbd => ', typeof transcodeResults.cbd);
-
 				return cb(null, video, transcodeResults);
 
 			});
@@ -98,12 +87,12 @@ module.exports.upload = function(req, res) {
 
 	    	// First, lets upload our mp4 version.
 	    	var mp4LocalPath = transcodeResults.mp4;
-	    	var mp4RemotePath = ['videos', '/', uid, '/', savedVideo.id, '.mp4'].join('');	    	
+	    	var mp4RemotePath = ['videos', '/', uid, '/', video.id, '.mp4'].join('');	    	
 			shipFileToS3(mp4LocalPath, mp4RemotePath, function() {
 
 				// After, lets upload our ogg version.
 		    	var oggLocalPath = transcodeResults.ogg;
-		    	var oggRemotePath = ['videos', '/', uid, '/', savedVideo.id, '.ogg'].join('');
+		    	var oggRemotePath = ['videos', '/', uid, '/', video.id, '.ogg'].join('');
 		    	shipFileToS3(oggLocalPath, oggRemotePath, function() {
 
 					// Update video status in db
@@ -161,6 +150,8 @@ module.exports.upload = function(req, res) {
 
 
 function transcodeVideo(videoData, callback) {
+
+	console.log(" >> Transcoding Video uid:", videoData.uid);
 
 	var sourcePath = videoData.video.path;
 
