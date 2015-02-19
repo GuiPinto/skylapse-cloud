@@ -52,7 +52,6 @@ module.exports.upload = function(req, res) {
 				status: 'queue'
 			});
 			video.save(function(err, savedVideo) {
-				console.log('savedVideo => ', savedVideo);
 				cb(null, savedVideo);
 			});
 
@@ -151,7 +150,7 @@ module.exports.upload = function(req, res) {
 
 function transcodeVideo(videoData, callback) {
 
-	console.log(" >> Transcoding Video uid:", videoData.uid);
+	console.log(">> Transcoding Video uid:", videoData.uid);
 
 	var sourcePath = videoData.video.path;
 
@@ -234,6 +233,7 @@ function shipFileToS3(localPath, remotePath, callback) {
 
 	} else {
 		console.log(" > Failed. Is not file!");
+		callback();
 	}
 
 }
