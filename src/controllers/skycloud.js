@@ -34,68 +34,114 @@ module.exports.upload = function(req, res) {
 	var date = req.body.date,
 		hour = req.body.hour,
 		uid	 = req.body.uid,
-		video = req.files.video,
-		videoPath = video.path;
-
-	var videoData = {
-		date: date,
-		hour: hour,
-		uid: uid,
-		video: video
-	};
+		inputVideo = req.files.video;
 
 	console.log("Skycloud Upload from UID:", uid);
 	console.log("videoData:", videoData);
 
-	// Create our video object
-	var video = new Video({
-		uid: uid,
-		date: date,
-		hour: hour,
-		status: 'queue'
-	});
 
-	// Save bideo obj to db
-	video.save(function(err, savedVideo) {
+	/** Action! **/
+	async.waterfall([
 
-		// Add Video to Processing Queue
-		videoTranscodingQueue.push(videoData, function (transcodeResults) { // after transcoding..
+		// Step 1. Create our video object
+	    function(cb) {
 
-			// Update video status in db
-			video.set('status', 'rendered');
-			video.save();
+			var video = new Video({
+				uid: uid,
+				date: date,
+				hour: hour,
+				status: 'queue'
+			});
+			video.save(cb);
 
-		    deleteSourceVideo(transcodeResults.source, function() {
+	    },
+	    
 
-		    	var mp4LocalPath = transcodeResults.mp4;
-		    	var mp4RemotePath = ['videos', '/', uid, '/', savedVideo.id, '.mp4'].join('');
-		    	console.log('mp4LocalPath', mp4LocalPath);
-		    	console.log('mp4RemotePath', mp4RemotePath);
-		    	shipFileToS3(mp4LocalPath, mp4RemotePath, function() {
+		// Step 2. Add Video to Processing Queue + Proccess Video
+	    function(video, cb) {
 
-			    	var oggLocalPath = transcodeResults.ogg;
-			    	var oggRemotePath = ['videos', '/', uid, '/', savedVideo.id, '.ogg'].join('');
-			    	console.log('oggLocalPath', oggLocalPath);
-			    	console.log('oggRemotePath', oggRemotePath);
-			    	shipFileToS3(oggLocalPath, oggRemotePath, function() {
+			var videoQueueToken = {
+				date: date,
+				hour: hour,
+				uid: uid,
+				video: inputVideo
+			};
+			videoTranscodingQueue.push(videoQueueToken, function (transcodeResults) { // after transcoding..
 
-						return res.send({
-							videoData: videoData,
-							transcodeResults: transcodeResults,
-							savedVideo: savedVideo
-						});
+				// Update video status in db
+				video.set('status', 'rendered');
+				video.save();
 
-		    		});
+		        cb(null, video, transcodeResults);
 
-		    	});
+			});
 
-		    });
+		},
 
+
+		// Step 3. Ship rendered videos to Amazon S3
+	    function(video, transcodeResults, cb) {
+
+	    	// First, lets upload our mp4 version.
+	    	var mp4LocalPath = transcodeResults.mp4;
+	    	var mp4RemotePath = ['videos', '/', uid, '/', savedVideo.id, '.mp4'].join('');	    	
+			shipFileToS3(mp4LocalPath, mp4RemotePath, function() {
+
+				// After, lets upload our ogg version.
+		    	var oggLocalPath = transcodeResults.ogg;
+		    	var oggRemotePath = ['videos', '/', uid, '/', savedVideo.id, '.ogg'].join('');
+		    	shipFileToS3(oggLocalPath, oggRemotePath, function() {
+
+					// Update video status in db
+					video.set('status', 'ready');
+					video.save();
+
+		    		cb(null, video, transcodeResults);
+
+				});
+			});
+	   	},
+
+
+		// Step 4. Delete local copies of the video (source and renders)
+	    function(video, transcodeResults, cb) {
+
+			async.series([
+				// First, our source video
+				function(cb){
+					deleteVideo(transcodeResults.source, function() {
+						cb(null);
+					});
+				},
+				// Then, our MP4 render
+				function(cb){
+					deleteVideo(transcodeResults.mp4, function() {
+						cb(null);
+					});
+				},
+				// Followed by our OGG render
+				function(cb){
+					deleteVideo(transcodeResults.ogg, function() {
+						cb(null);
+					});
+				}
+			],
+			function(err, results){
+				cb(err, video, transcodeResults);	
+			});
+	    	
+	   	}
+
+	], function (err, video, transcodeResults) {
+	    if (err) return res.send(err, 500);
+
+		return res.send({
+			err: err,
+			video: video,
+			transcodeResults: transcodeResults
 		});
 
 	});
-
-
 
 }
 
@@ -146,7 +192,7 @@ function transcodeVideo(videoData, callback) {
     });
 }
 
-function deleteSourceVideo(videoPath, callback) {
+function deleteVideo(videoPath, callback) {
 	console.log('> Deleting source video:', videoPath);
 	return fs.unlink(videoPath, callback);
 }
