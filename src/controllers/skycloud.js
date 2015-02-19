@@ -1,6 +1,7 @@
 var exec = require('child_process').exec,
 	fs = require('fs'),
 	async = require('async'),
+	path = require('path'),
 	aws = require('aws-sdk'),
 	Video = require('../models/video').model;
 
@@ -14,11 +15,7 @@ aws.config.update({
 aws.config.update({region: 'us-east-1'});
 
 module.exports.index = function(req, res) {
-
-
-
-
-
+	return res.send({"hi":"there"});
 }
 
 
@@ -70,11 +67,27 @@ module.exports.upload = function(req, res) {
 
 		    deleteSourceVideo(transcodeResults.source, function() {
 
-				return res.send({
-					videoData: videoData,
-					transcodeResults: transcodeResults,
-					savedVideo: savedVideo
-				});
+		    	var mp4LocalPath = transcodeResults.mp4;
+		    	var mp4RemotePath = ['videos', '/', uid, '/', savedVideo.id, '.mp4'].join('');
+		    	console.log('mp4LocalPath', mp4LocalPath);
+		    	console.log('mp4RemotePath', mp4RemotePath);
+		    	shipFileToS3(mp4LocalPath, mp4RemotePath, function() {
+
+			    	var oggLocalPath = transcodeResults.ogg;
+			    	var oggRemotePath = ['videos', '/', uid, '/', savedVideo.id, '.ogg'].join('');
+			    	console.log('oggLocalPath', oggLocalPath);
+			    	console.log('oggRemotePath', oggRemotePath);
+			    	shipFileToS3(oggLocalPath, oggRemotePath, function() {
+
+						return res.send({
+							videoData: videoData,
+							transcodeResults: transcodeResults,
+							savedVideo: savedVideo
+						});
+
+		    		});
+
+		    	});
 
 		    });
 
@@ -141,7 +154,7 @@ function deleteSourceVideo(videoPath, callback) {
 function shipFileToS3(localPath, remotePath, callback) {
 	var fileName = path.basename(localPath);
 
-	var s3 = new AWS.S3();
+	var s3 = new aws.S3();
 
 	if (fs.lstatSync(localPath).isFile()) {
 
@@ -149,7 +162,7 @@ function shipFileToS3(localPath, remotePath, callback) {
 			if (err) throw err;
 
 			var s3Bucket = "skylapse";
-			var s3Key = "boston2/" + fileName;
+			var s3Key = remotePath;
 
 			s3.putObject({
 				Bucket: s3Bucket,
