@@ -37,7 +37,6 @@ module.exports.upload = function(req, res) {
 		inputVideo = req.files.video;
 
 	console.log("Skycloud Upload from UID:", uid);
-	console.log("videoData:", videoData);
 
 
 	/** Action! **/
