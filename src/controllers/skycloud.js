@@ -51,7 +51,10 @@ module.exports.upload = function(req, res) {
 				hour: hour,
 				status: 'queue'
 			});
-			video.save(cb);
+			video.save(function(err, savedVideo) {
+				console.log('savedVideo => ', savedVideo);
+				cb(null, savedVideo);
+			});
 
 	    },
 	    
@@ -59,11 +62,18 @@ module.exports.upload = function(req, res) {
 		// Step 2. Add Video to Processing Queue + Proccess Video
 	    function(video, cb) {
 
+	    	console.log('video => ', video);
+	    	console.log('typeof video => ', typeof video);
+
+	    	console.log('cb => ', cb);
+	    	console.log('typeof cb => ', typeof cb);
+
 			var videoQueueToken = {
 				date: date,
 				hour: hour,
 				uid: uid,
-				video: inputVideo
+				video: inputVideo,
+				cbd: cb
 			};
 			videoTranscodingQueue.push(videoQueueToken, function (transcodeResults) { // after transcoding..
 
@@ -71,7 +81,12 @@ module.exports.upload = function(req, res) {
 				video.set('status', 'rendered');
 				video.save();
 
-		        cb(null, video, transcodeResults);
+				console.log('cb => ', cb);
+				console.log('typeof cb => ', typeof cb);
+				console.log('transcodeResults.cbd => ', transcodeResults.cbd);
+				console.log('typeof transcodeResults.cbd => ', typeof transcodeResults.cbd);
+
+				return cb(null, video, transcodeResults);
 
 			});
 
