@@ -15,7 +15,7 @@ aws.config.update({
 aws.config.update({region: 'us-east-1'});
 
 module.exports.index = function(req, res) {
-	return res.send({"hi":"there"});
+	return res.send(";)");
 }
 
 
@@ -41,6 +41,27 @@ module.exports.upload = function(req, res) {
 
 	/** Action! **/
 	async.waterfall([
+
+		// Step 0. Verify for duplicate submission
+	    function(cb) {
+
+	    	Video.find(({
+				uid: uid,
+				date: date,
+				hour: hour
+			}, function(err, videos) {
+				if (err) return cb(err);
+
+				if (videos.length > 0) {
+					// Video already in system
+					return cb("Duplicate Video.");
+				} else {
+					// Video not yet submitted.
+					return cb(null);
+				}
+			});
+
+	    },
 
 		// Step 1. Create our video object
 	    function(cb) {
