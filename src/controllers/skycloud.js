@@ -45,7 +45,7 @@ module.exports.upload = function(req, res) {
 		// Step 0. Verify for duplicate submission
 	    function(cb) {
 
-	    	Video.find(({
+	    	Video.find({
 				uid: uid,
 				date: date,
 				hour: hour
@@ -156,7 +156,10 @@ module.exports.upload = function(req, res) {
 	   	}
 
 	], function (err, video, transcodeResults) {
-	    if (err) return res.send(err, 500);
+	    if (err) {
+	    	console.log("Error:",err);
+	    	return res.send(err, 500);
+	    }
 
 		return res.send({
 			err: err,
