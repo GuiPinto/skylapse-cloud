@@ -158,7 +158,7 @@ module.exports.upload = function(req, res) {
 	], function (err, video, transcodeResults) {
 	    if (err) {
 	    	console.log("Error:",err);
-	    	return res.send(err, 500);
+	    	return res.status(500).send(err);
 	    }
 
 		return res.send({
